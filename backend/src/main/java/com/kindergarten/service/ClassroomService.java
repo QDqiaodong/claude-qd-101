@@ -4,6 +4,7 @@ import com.kindergarten.dto.BizException;
 import com.kindergarten.entity.Classroom;
 import com.kindergarten.entity.TeachingAid;
 import com.kindergarten.repository.ClassroomRepository;
+import com.kindergarten.repository.MedicationOrderRepository;
 import com.kindergarten.repository.TeachingAidRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -14,10 +15,13 @@ public class ClassroomService {
 
     private final ClassroomRepository classrooms;
     private final TeachingAidRepository aids;
+    private final MedicationOrderRepository medicationOrders;
 
-    public ClassroomService(ClassroomRepository classrooms, TeachingAidRepository aids) {
+    public ClassroomService(ClassroomRepository classrooms, TeachingAidRepository aids,
+                            MedicationOrderRepository medicationOrders) {
         this.classrooms = classrooms;
         this.aids = aids;
+        this.medicationOrders = medicationOrders;
     }
 
     public List<Classroom> list(String status, String keyword) {
@@ -49,7 +53,8 @@ public class ClassroomService {
 
     @Transactional
     public Classroom update(Long id, Classroom input) {
-        Classroom c = classrooms.findById(id).orElseThrow(() -> new BizException("班级不存在"));
+        // 停用、挂委托、执行委托都抢这同一把班级行锁：谁的事务先提交，另一边看到的就是最新结果
+        Classroom c = classrooms.findByIdForUpdate(id).orElseThrow(() -> new BizException("班级不存在"));
         if (input.name != null) {
             c.name = input.name;
         }
@@ -65,6 +70,13 @@ public class ClassroomService {
                 if (!own.isEmpty()) {
                     throw new BizException("这个班名下还有 " + own.size()
                             + " 件教具，先都挪走或者处理掉才能停用");
+                }
+                // 第二道关：还有未执行的服药委托就顶回去。委托一张不动，班级仍是使用中
+                long pending = medicationOrders.countByClassroomIdAndStatus(c.id, "未执行");
+                if (pending > 0) {
+                    throw new BizException("停用没成功：这个班还有 " + pending
+                            + " 张未执行的服药委托。班级仍是「使用中」，委托原样保留——"
+                            + "请老师逐张记下喂药时刻点已执行、写清原因关单，或由家长退回，再来停用");
                 }
             }
             c.status = input.status;

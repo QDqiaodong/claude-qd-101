@@ -1,5 +1,6 @@
 SET NAMES utf8mb4;
 
+DROP TABLE IF EXISTS medication_order;
 DROP TABLE IF EXISTS repair_order;
 DROP TABLE IF EXISTS disinfection;
 DROP TABLE IF EXISTS aid_loan;
@@ -66,6 +67,22 @@ CREATE TABLE repair_order (
   KEY idx_repair_aid (aid_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE medication_order (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  classroom_id BIGINT NOT NULL,
+  child_name VARCHAR(32) NOT NULL,
+  medicine_name VARCHAR(64) NOT NULL,
+  dose VARCHAR(64) NOT NULL,
+  parent_sign_date DATE NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  actual_time DATETIME NULL,
+  close_reason VARCHAR(255) NULL,
+  created_at DATETIME NULL,
+  updated_at DATETIME NULL,
+  PRIMARY KEY (id),
+  KEY idx_med_classroom_status (classroom_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO classroom (code, name, capacity, status) VALUES
 ('C-01', '小一班', 25, '使用中'),
 ('C-02', '小二班', 25, '使用中'),
@@ -95,3 +112,9 @@ INSERT INTO disinfection (aid_id, disinfect_date, method, result, operator) VALU
 INSERT INTO repair_order (aid_id, kind, fault_desc, reporter, status, conclusion, created_at, updated_at) VALUES
 (6, '报修', '拉力绳有点起毛', '张老师', '维修中', NULL, '2026-09-16 09:20:00', '2026-09-16 09:20:00'),
 (5, '点检', '边角有磨损', '王老师', '待处理', NULL, '2026-09-16 10:05:00', '2026-09-16 10:05:00');
+
+INSERT INTO medication_order (classroom_id, child_name, medicine_name, dose, parent_sign_date, status, actual_time, close_reason, created_at, updated_at) VALUES
+(1, '朵朵', '小儿豉翘清热颗粒', '1 袋，温水送服', '2026-09-17', '未执行', NULL, NULL, '2026-09-18 08:40:00', '2026-09-18 08:40:00'),
+(1, '豆豆', '氯雷他定糖浆', '5ml', '2026-09-17', '未执行', NULL, NULL, '2026-09-18 08:50:00', '2026-09-18 08:50:00'),
+(3, '果果', '布洛芬混悬液', '4ml', '2026-09-16', '已执行', '2026-09-16 12:35:00', NULL, '2026-09-16 08:30:00', '2026-09-16 12:35:00'),
+(4, '小米', '蒙脱石散', '半袋，温水冲服', '2026-09-15', '已关闭', NULL, '孩子今天请假没来', '2026-09-15 08:20:00', '2026-09-15 12:10:00');

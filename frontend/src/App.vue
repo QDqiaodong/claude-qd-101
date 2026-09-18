@@ -7,6 +7,7 @@
         <el-menu-item index="/aids">玩具教具台账</el-menu-item>
         <el-menu-item index="/loans">教具借用归还</el-menu-item>
         <el-menu-item index="/care">消毒与报修</el-menu-item>
+        <el-menu-item index="/medication">午间服药委托</el-menu-item>
       </el-menu>
     </el-header>
     <el-main>

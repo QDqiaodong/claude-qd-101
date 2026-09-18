@@ -14,6 +14,7 @@
           <th style="width:120px">可容纳</th>
           <th style="width:130px">状态</th>
           <th style="width:100px">名下教具</th>
+          <th style="width:110px">未执行委托</th>
           <th style="width:72px">操作</th>
         </tr>
       </thead>
@@ -29,6 +30,9 @@
             </select>
           </td>
           <td class="num">{{ aidCount(row.id) }}</td>
+          <td class="num" :class="{ blocked: pendingMed(row.id) > 0 }">
+            {{ pendingMed(row.id) > 0 ? pendingMed(row.id) + ' 张' : '—' }}
+          </td>
           <td>
             <span class="lnk" @click="toggle(row)">{{ row.status === '停用' ? '启用' : '停用' }}</span>
           </td>
@@ -45,6 +49,7 @@
             </select>
           </td>
           <td class="num">—</td>
+          <td class="num">—</td>
           <td><span class="lnk add" @click="append">新增</span></td>
         </tr>
       </tbody>
@@ -57,10 +62,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { classroomApi, aidApi } from '../api'
+import { classroomApi, aidApi, medicationApi } from '../api'
 
 const rows = ref([])
 const aids = ref([])
+const meds = ref([])
 const keyword = ref('')
 const savedTip = ref('')
 const draft = ref({ code: '', name: '', capacity: 20, status: '使用中' })
@@ -75,6 +81,10 @@ function aidCount(id) {
   return aids.value.filter((a) => a.classroomId === id).length
 }
 
+function pendingMed(id) {
+  return meds.value.filter((m) => m.classroomId === id && m.status === '未执行').length
+}
+
 function flash(text) {
   savedTip.value = text
   setTimeout(() => (savedTip.value = ''), 1200)
@@ -84,6 +94,7 @@ async function load() {
   try {
     rows.value = await classroomApi.list({})
     aids.value = await aidApi.list({})
+    meds.value = await medicationApi.list({})
   } catch (e) {
     ElMessage.error(e.message)
   }
@@ -94,6 +105,7 @@ async function commit(row, field) {
     await classroomApi.update(row.id, { [field]: row[field] })
     flash('已自动保存')
     aids.value = await aidApi.list({})
+    meds.value = await medicationApi.list({})
   } catch (e) {
     ElMessage.error(e.message)
     await load()
@@ -186,6 +198,10 @@ onMounted(load)
   text-align: right;
   padding-right: 18px;
   color: #666;
+}
+.sheet td.num.blocked {
+  color: #b88230;
+  font-weight: 600;
 }
 .sheet input,
 .sheet select {

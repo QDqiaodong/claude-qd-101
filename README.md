@@ -1,7 +1,7 @@
 # 幼儿园 · 班级与玩具教具管理系统
 
-幼儿园日常教具管理的台账系统：**班级与活动室**、**玩具教具台账**、
-**教具借用归还**、**消毒与报修**。
+幼儿园日常管理的台账系统：**班级与活动室**、**玩具教具台账**、
+**教具借用归还**、**消毒与报修**、**午间服药委托**。
 
 ## 技术栈
 
@@ -32,7 +32,9 @@ docker compose down -v    # 连数据卷一起删，下次启动重新灌种子�
 ### 1. 班级与活动室（`classroom`）
 
 班级编号 `C-xx` 全库唯一，状态为 `使用中 / 停用`，还有一个「可容纳人数」。
-**停用班级之前要先把它名下登记的教具全都挪走或者处理掉**，否则不允许停用。
+**停用班级之前要先把它名下登记的教具全都挪走或者处理掉**，否则不允许停用；
+**班头上只要还有「未执行」的服药委托，停用同样会被顶回来**——班级仍是「使用中」，
+委托原样保留，系统不会顺手清掉任何一张单子。
 支持按状态、编号或名称关键字筛选。
 
 - 页面：班级与活动室（`/classrooms`）
@@ -68,6 +70,27 @@ docker compose down -v    # 连数据卷一起删，下次启动重新灌种子�
 - 接口：`GET /api/disinfections`、`POST /api/disinfections`、`GET /api/repairs`、
   `POST /api/repairs`、`POST /api/repairs/{id}/advance?action=&conclusion=`
 
+### 5. 午间服药委托（`medication_order`）
+
+家长签字委托班级中午给孩子喂一次药。一张委托写清：**挂在哪个班、孩子怎么称呼、
+药品名称、这一次剂量、家长签字日**。**只能挂到「使用中」的班级**，停用的班级挂不上新委托。
+委托只流转状态、永不删除：
+
+- `未执行 → 已执行`：当班老师记下**实际喂药时刻**再点已执行；
+- `未执行 → 已关闭`：孩子没来或拒服，**必须写下原因才能关单，空关不许过**；
+- `未执行 → 已退回`：家长把委托退回。
+
+**班级停用的第二道关**：班头上还有「未执行」委托时，停用必须失败，
+班级身份继续是「使用中」，委托原文一张不少（不做点停用就自动作废）。
+执行/关单/退回与停用并发抢同一个班时，两边在班级行锁上排队：
+执行先落库，停用数到 0 张未执行才放行；停用先拿到锁，就失败并提示还有未执行委托——
+失败的那一侧看到的始终是「班级还在用、委托还停在未执行」，不会出现半截账。
+
+- 页面：午间服药委托（`/medication`）
+- 接口：`GET /api/medications`、`POST /api/medications`、
+  `POST /api/medications/{id}/execute?actualTime=`、`POST /api/medications/{id}/close?reason=`、
+  `POST /api/medications/{id}/withdraw`
+
 ## 目录
 
 ```
@@ -75,9 +98,9 @@ backend/src/main/java/com/kindergarten/
 ├── config/       CORS 配置
 ├── controller/   REST 入口
 ├── dto/          BizException + 统一错误响应
-├── entity/       5 张业务表
-├── repository/   Spring Data JPA
-└── service/      业务规则（唯一性、区间重叠、状态机、归属校验）
+├── entity/       6 张业务表
+├── repository/   Spring Data JPA（班级行 / 委托行带 SELECT ... FOR UPDATE 锁读）
+└── service/      业务规则（唯一性、区间重叠、状态机、归属校验、停用双道关）
 backend/src/main/resources/schema.sql   建表 + 种子数据（挂进 MySQL initdb）
-frontend/src/views/                     4 个业务页面
+frontend/src/views/                     5 个业务页面
 ```
