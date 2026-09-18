@@ -2,7 +2,7 @@
   <div class="sheet-wrap">
     <div class="sheet-cap">
       <span class="sheet-title">班级表</span>
-      <span class="sheet-hint">格子里的内容直接改，点一下别处就存了；最后一行是新增行</span>
+      <span class="sheet-hint">停用先挪走教具；还有未执行服药委托时也会被顶回来，且委托不会自动作废</span>
       <input v-model="keyword" class="sheet-search" placeholder="按班级名 / 编号过滤" />
     </div>
 
@@ -14,6 +14,7 @@
           <th style="width:120px">可容纳</th>
           <th style="width:130px">状态</th>
           <th style="width:100px">名下教具</th>
+          <th style="width:120px">未执行服药</th>
           <th style="width:72px">操作</th>
         </tr>
       </thead>
@@ -29,6 +30,9 @@
             </select>
           </td>
           <td class="num">{{ aidCount(row.id) }}</td>
+          <td class="num" :class="{ block: pendingCount(row.id) > 0 }">
+            {{ pendingCount(row.id) }}
+          </td>
           <td>
             <span class="lnk" @click="toggle(row)">{{ row.status === '停用' ? '启用' : '停用' }}</span>
           </td>
@@ -45,6 +49,7 @@
             </select>
           </td>
           <td class="num">—</td>
+          <td class="num">—</td>
           <td><span class="lnk add" @click="append">新增</span></td>
         </tr>
       </tbody>
@@ -57,10 +62,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { classroomApi, aidApi } from '../api'
+import { classroomApi, aidApi, medicationApi } from '../api'
 
 const rows = ref([])
 const aids = ref([])
+const medications = ref([])
 const keyword = ref('')
 const savedTip = ref('')
 const draft = ref({ code: '', name: '', capacity: 20, status: '使用中' })
@@ -75,6 +81,10 @@ function aidCount(id) {
   return aids.value.filter((a) => a.classroomId === id).length
 }
 
+function pendingCount(id) {
+  return medications.value.filter((d) => d.classroomId === id && d.status === '未执行').length
+}
+
 function flash(text) {
   savedTip.value = text
   setTimeout(() => (savedTip.value = ''), 1200)
@@ -84,6 +94,7 @@ async function load() {
   try {
     rows.value = await classroomApi.list({})
     aids.value = await aidApi.list({})
+    medications.value = await medicationApi.list({})
   } catch (e) {
     ElMessage.error(e.message)
   }
@@ -93,10 +104,16 @@ async function commit(row, field) {
   try {
     await classroomApi.update(row.id, { [field]: row[field] })
     flash('已自动保存')
-    aids.value = await aidApi.list({})
+    const [freshAids, freshMedications] = await Promise.all([
+      aidApi.list({}),
+      medicationApi.list({})
+    ])
+    aids.value = freshAids
+    medications.value = freshMedications
   } catch (e) {
     ElMessage.error(e.message)
-    await load()
+    // 等抢锁事务回滚完成后再刷新，避免刚好读到旧快照，造成“停用失败却像已停用”的半截观感。
+    setTimeout(load, 300)
   }
 }
 
@@ -186,6 +203,10 @@ onMounted(load)
   text-align: right;
   padding-right: 18px;
   color: #666;
+}
+.sheet td.num.block {
+  color: #e6a23c;
+  font-weight: 600;
 }
 .sheet input,
 .sheet select {

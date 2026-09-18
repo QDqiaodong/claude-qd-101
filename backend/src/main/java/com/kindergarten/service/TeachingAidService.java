@@ -7,6 +7,7 @@ import com.kindergarten.repository.ClassroomRepository;
 import com.kindergarten.repository.TeachingAidRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -38,7 +39,7 @@ public class TeachingAidService {
             throw new BizException("编号 " + input.code + " 已经被别的教具用掉了");
         }
         if (input.classroomId != null) {
-            Classroom room = classrooms.findById(input.classroomId)
+            Classroom room = classrooms.findForUpdateById(input.classroomId)
                     .orElseThrow(() -> new BizException("要归的班级不存在"));
             if ("停用".equals(room.status)) {
                 throw new BizException("班级 " + room.name + " 已经停用了，教具不能往那儿放");
@@ -53,7 +54,7 @@ public class TeachingAidService {
         return aids.save(saved);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public TeachingAid update(Long id, TeachingAid input) {
         TeachingAid a = aids.findById(id).orElseThrow(() -> new BizException("教具不存在"));
         if (input.name != null) {
@@ -63,6 +64,12 @@ public class TeachingAidService {
             a.kind = input.kind;
         }
         if (input.classroomId != null && !input.classroomId.equals(a.classroomId)) {
+            java.util.stream.Stream.concat(
+                            java.util.stream.Stream.ofNullable(a.classroomId),
+                            java.util.stream.Stream.of(input.classroomId))
+                    .distinct()
+                    .sorted()
+                    .forEach(classrooms::findForUpdateById);
             Classroom room = classrooms.findById(input.classroomId)
                     .orElseThrow(() -> new BizException("要归的班级不存在"));
             if ("停用".equals(room.status)) {

@@ -3,6 +3,7 @@ SET NAMES utf8mb4;
 DROP TABLE IF EXISTS repair_order;
 DROP TABLE IF EXISTS disinfection;
 DROP TABLE IF EXISTS aid_loan;
+DROP TABLE IF EXISTS medication_delegation;
 DROP TABLE IF EXISTS teaching_aid;
 DROP TABLE IF EXISTS classroom;
 
@@ -14,6 +15,24 @@ CREATE TABLE classroom (
   status VARCHAR(16) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uk_classroom_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE medication_delegation (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  classroom_id BIGINT NOT NULL,
+  child_name VARCHAR(32) NOT NULL,
+  medicine_name VARCHAR(64) NOT NULL,
+  dose VARCHAR(32) NOT NULL,
+  parent_sign_date DATE NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  executed_at DATETIME NULL,
+  closed_at DATETIME NULL,
+  close_reason VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_medication_classroom_status (classroom_id, status),
+  KEY idx_medication_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE teaching_aid (
@@ -72,6 +91,10 @@ INSERT INTO classroom (code, name, capacity, status) VALUES
 ('C-03', '中一班', 30, '使用中'),
 ('C-04', '大二班', 30, '使用中'),
 ('C-05', '大三班', 28, '停用');
+
+INSERT INTO medication_delegation
+(classroom_id, child_name, medicine_name, dose, parent_sign_date, status, executed_at, closed_at, close_reason, created_at, updated_at) VALUES
+(1, '朵朵', '小儿氨酚黄那敏颗粒', '1袋', '2026-09-18', '未执行', NULL, NULL, NULL, '2026-09-18 08:15:00', '2026-09-18 08:15:00');
 
 INSERT INTO teaching_aid (code, name, kind, classroom_id, status) VALUES
 ('TA-1001', '大颗粒积木', '积木', 1, '可用'),

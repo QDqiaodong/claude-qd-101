@@ -38,4 +38,12 @@ export const careApi = {
     http.post(`/repairs/${id}/advance`, null, { params: { action, conclusion } })
 }
 
+export const medicationApi = {
+  list: (params) => http.get('/medication-delegations', { params }),
+  create: (data) => http.post('/medication-delegations', data),
+  execute: (id, data) => http.post(`/medication-delegations/${id}/execute`, data),
+  returnByParent: (id, data) => http.post(`/medication-delegations/${id}/return`, data),
+  close: (id, data) => http.post(`/medication-delegations/${id}/close`, data)
+}
+
 export default http

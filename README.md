@@ -1,7 +1,7 @@
 # 幼儿园 · 班级与玩具教具管理系统
 
 幼儿园日常教具管理的台账系统：**班级与活动室**、**玩具教具台账**、
-**教具借用归还**、**消毒与报修**。
+**教具借用归还**、**午间服药委托**、**消毒与报修**。
 
 ## 技术栈
 
@@ -32,7 +32,8 @@ docker compose down -v    # 连数据卷一起删，下次启动重新灌种子�
 ### 1. 班级与活动室（`classroom`）
 
 班级编号 `C-xx` 全库唯一，状态为 `使用中 / 停用`，还有一个「可容纳人数」。
-**停用班级之前要先把它名下登记的教具全都挪走或者处理掉**，否则不允许停用。
+**停用班级之前要先把它名下登记的教具全都挪走或者处理掉，并且没有未执行的午间服药委托**，
+否则不允许停用。停用不会自动作废委托；老师先记录实际喂药时刻并执行，或家长退回后，停用才能通过。
 支持按状态、编号或名称关键字筛选。
 
 - 页面：班级与活动室（`/classrooms`）
@@ -56,7 +57,23 @@ docker compose down -v    # 连数据卷一起删，下次启动重新灌种子�
 - 页面：教具借用归还（`/loans`）
 - 接口：`GET /api/loans`、`POST /api/loans`、`POST /api/loans/{id}/giveback?returnDate=`
 
-### 4. 消毒与报修（`disinfection` / `repair_order`）
+### 4. 午间服药委托（`medication_delegation`）
+
+一张委托只对应一次午间服药，必须挂在一个**使用中**的班级，并写清孩子称呼、药品名称、这一次剂量和家长签字日。
+状态为 `未执行 / 已执行 / 家长退回 / 未服关闭`：
+
+- 停用班级不能再挂新委托。
+- 当班老师执行时必须记录实际喂药时刻；家长可以退回委托。
+- 孩子没来或拒服时，必须写明未服原因才能关闭委托，空原因不能关单。
+- 只要班级还有 `未执行` 委托，停用会被顶回；班级保持 `使用中`，委托原文继续保留，不会自动作废。
+- 停用与执行通过班级行悲观锁串行处理：执行先落库则停用可继续；停用先成功则执行侧会失败并刷新到班级停用状态。
+
+- 页面：午间服药委托（`/medication`）
+- 接口：`GET /api/medication-delegations`、`POST /api/medication-delegations`、
+  `POST /api/medication-delegations/{id}/execute`、`POST /api/medication-delegations/{id}/return`、
+  `POST /api/medication-delegations/{id}/close`
+
+### 5. 消毒与报修（`disinfection` / `repair_order`）
 
 - **消毒记录**：一件教具做一次消毒，记录日期、方式（擦拭 / 浸泡 / 紫外线）、结果与操作人。
   **同一件教具同一天只能登记一条**。
@@ -75,9 +92,9 @@ backend/src/main/java/com/kindergarten/
 ├── config/       CORS 配置
 ├── controller/   REST 入口
 ├── dto/          BizException + 统一错误响应
-├── entity/       5 张业务表
+├── entity/       6 张业务表
 ├── repository/   Spring Data JPA
 └── service/      业务规则（唯一性、区间重叠、状态机、归属校验）
 backend/src/main/resources/schema.sql   建表 + 种子数据（挂进 MySQL initdb）
-frontend/src/views/                     4 个业务页面
+frontend/src/views/                     5 个业务页面
 ```
